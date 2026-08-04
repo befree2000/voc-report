@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>사후판매 녹취분석 — 두 집합 대시보드</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, 'Apple SD Gothic Neo', BlinkMacSystemFont, sans-serif;
+      background: #eef0f7;
+      padding: 24px 20px 52px;
+      min-height: 100vh;
+    }
+
+    h1 { text-align: center; font-size: 18px; font-weight: 800; color: #1a1d2e; margin-bottom: 4px; }
+    .sub { text-align: center; font-size: 11px; color: #999; margin-bottom: 16px; }
+
+    /* ── 날짜 탭 ── */
+    .tabs { display: flex; justify-content: center; gap: 8px; margin-bottom: 22px; }
+    .tab {
+      padding: 7px 22px; border-radius: 20px; border: 2px solid #868e96;
+      background: white; color: #868e96; cursor: pointer; font-weight: 700;
+      font-size: 13px; transition: all 0.15s;
+    }
+    .tab.active, .tab:hover { background: #868e96; color: white; }
+
+    /* ── 섹션 카드 ── */
+    .section-card {
+      background: white; border-radius: 20px; padding: 22px 24px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.07);
+      max-width: 920px; margin: 0 auto 20px;
+    }
+
+    /* 섹션 헤더 */
+    .sec-hdr { margin-bottom: 18px; padding-bottom: 14px; border-bottom: 2px solid #f0f2f8; }
+    .sec-hdr-row1 { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
+    .sec-badge {
+      font-size: 11px; font-weight: 900; padding: 4px 13px;
+      border-radius: 20px; letter-spacing: 0.3px;
+    }
+    .badge-b { background: #dde4ff; color: #2646c4; }
+    .badge-g { background: #d3f9d8; color: #1b5e20; }
+    .sec-title { font-size: 15px; font-weight: 800; color: #1a1d2e; }
+    .sec-q { font-size: 11px; color: #aaa; font-style: italic; }
+
+    /* 섹션 바디: 퍼널 + KPI 나란히 */
+    .sec-body { display: flex; gap: 22px; align-items: flex-start; }
+    .funnel-col { flex: 1; min-width: 0; }
+
+    /* ── 스테이지 카드 ── */
+    .stage-row { display: flex; align-items: flex-start; gap: 10px; }
+    .stage {
+      flex: 1; border-radius: 14px; padding: 15px 18px 17px; color: white;
+    }
+
+    /* 원 안 숫자 — 크고 선명하게 */
+    .shdr { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .cnum {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: rgba(255,255,255,0.26);
+      border: 2.5px solid rgba(255,255,255,0.55);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 19px; font-weight: 900; color: white; flex-shrink: 0;
+    }
+    .cnum-sm { font-size: 13px; }
+    .sname { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.82); }
+
+    .bnum { font-size: 52px; font-weight: 900; line-height: 1; margin-bottom: 3px; letter-spacing: -2px; }
+    .spct { font-size: 11px; color: rgba(255,255,255,0.6); }
+
+    /* 스테이지 색상 */
+    .c1  { background: linear-gradient(135deg, #12205f, #2646c4); }
+    .c4  { background: linear-gradient(135deg, #1565c0, #1e88e5); }
+    .c6  { background: linear-gradient(135deg, #1b5e20, #388e3c); }
+    .c4b { background: linear-gradient(135deg, #1565c0, #1e88e5); }
+    .cck { background: linear-gradient(135deg, #4a148c, #7b1fa2); }
+
+    /* 커넥터 */
+    .conn { display: flex; align-items: center; padding: 5px 0 5px 21px; height: 36px; }
+    .cline { width: 2px; height: 26px; background: #ced4da; border-radius: 2px; margin-right: 11px; flex-shrink: 0; }
+    .clbl { font-size: 11px; font-weight: 700; color: #868e96; }
+
+    /* 이탈 패널 */
+    .dout-col { width: 182px; flex-shrink: 0; display: flex; align-items: flex-start; gap: 5px; }
+    .darr { font-size: 16px; color: #ced4da; flex-shrink: 0; margin-top: 18px; }
+    .dcard {
+      flex: 1; background: #f8f9fb; border-radius: 11px; padding: 11px 12px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+    }
+    .dr { border-left: 3px solid #e03131; }
+    .dg { border-left: 3px solid #adb5bd; }
+    .dhd { font-size: 9.5px; font-weight: 800; margin-bottom: 7px; text-transform: uppercase; letter-spacing: 0.3px; }
+    .dhd-r { color: #c92a2a; }
+    .dhd-g { color: #868e96; }
+
+    /* 매칭실패 KPI */
+    .mkpi {
+      background: #fff5f5; border: 1px solid #ffc9c9; border-radius: 7px;
+      padding: 7px 10px; margin-bottom: 7px;
+    }
+    .mkpi-lbl { font-size: 8.5px; font-weight: 800; color: #c92a2a; margin-bottom: 1px; }
+    .mkpi-val { font-size: 24px; font-weight: 900; color: #c92a2a; line-height: 1.1; }
+    .mkpi-sub { font-size: 8.5px; color: #e03131; }
+
+    .ditem { font-size: 11px; color: #495057; line-height: 1.85; }
+    .dtot { font-size: 11px; font-weight: 800; color: #c92a2a; margin-top: 5px; padding-top: 5px; border-top: 1px solid #ffe3e3; }
+    .dgray-sub { font-size: 10px; color: #aaa; margin-top: 3px; }
+    .phantom { width: 182px; flex-shrink: 0; }
+
+    /* ── 집합 1 뷰 토글 ── */
+    .sec-hdr-row1 { display: flex; align-items: center; gap: 10px; }
+    .mini-toggle { display: flex; gap: 6px; margin-left: auto; }
+    .mt-tab {
+      padding: 5px 14px; border-radius: 8px; border: 1.5px solid #364fc7;
+      background: white; color: #364fc7; cursor: pointer; font-weight: 700;
+      font-size: 11px; transition: all 0.15s;
+    }
+    .mt-tab.active { background: #364fc7; color: white; }
+    .mt-tab:hover:not(.active) { background: #e8ecff; }
+
+    /* ── 중첩 집합 표현 ── */
+    .n-layer { border-radius: 14px; padding: 16px; }
+    .n-top { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+    .n-info { flex: 1; }
+    .n-dout {
+      background: rgba(255,255,255,0.95); border-radius: 10px;
+      padding: 11px 12px; min-width: 148px; max-width: 166px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    }
+    .n-arrow { font-size: 13px; color: rgba(255,255,255,0.45); margin: 6px 0 6px 4px; }
+
+    /* ── 집합 2 Confusion Matrix ── */
+    .cm { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 13px; }
+    .cm-cell { border-radius: 10px; padding: 10px 8px; text-align: center; }
+    .cm-lbl { font-size: 9px; font-weight: 800; color: rgba(255,255,255,0.82); margin-bottom: 3px; }
+    .cm-val { font-size: 30px; font-weight: 900; color: white; line-height: 1; }
+    .cm-sub { font-size: 8px; color: rgba(255,255,255,0.58); margin-top: 2px; }
+    .cm-tp { background: rgba(255,255,255,0.20); border: 1.5px solid rgba(255,255,255,0.35); }
+    .cm-fp { background: rgba(255,70,70,0.32);  border: 1.5px solid rgba(255,120,120,0.45); }
+    .cm-fn { background: rgba(255,190,50,0.30); border: 1.5px solid rgba(255,220,80,0.45); }
+    .cm-tn { background: rgba(255,255,255,0.10); border: 1.5px solid rgba(255,255,255,0.22); }
+
+    /* 실제 위반 요약바 */
+    .vbar {
+      margin-top: 12px; background: rgba(255,255,255,0.16); border-radius: 9px;
+      padding: 10px 14px; font-size: 12px; color: rgba(255,255,255,0.88); line-height: 1.7;
+    }
+    .vnum { font-size: 20px; font-weight: 900; vertical-align: baseline; }
+
+    /* ── KPI 테이블 컬럼 ── */
+    .kpi-col { width: 246px; flex-shrink: 0; }
+    table.ktbl { width: 100%; border-collapse: collapse; border-radius: 13px; overflow: hidden; }
+    table.ktbl td { padding: 8px 13px; font-size: 12px; color: #495057; border-bottom: 1px solid #f0f2f8; }
+    table.ktbl tr:last-child td { border-bottom: none; }
+
+    .kth td { background: #dde4ff; font-size: 11px; font-weight: 900; color: #2646c4; letter-spacing: 0.3px; }
+    .kth-g td { background: #d3f9d8; font-size: 11px; font-weight: 900; color: #1b5e20; letter-spacing: 0.3px; }
+
+    /* KPI 값 셀 — 크고 굵게 */
+    .kv { text-align: right; font-weight: 800; font-size: 16px; color: #1a1d2e; }
+    .kv-lg { font-size: 20px; }
+    .kv-b { color: #2646c4 !important; }
+    .kv-g { color: #1b5e20 !important; }
+    .kv-r { color: #c92a2a !important; }
+    .kv-o { color: #e67700 !important; }
+    .kv-p { color: #5c37c4 !important; }
+
+    .ksep td { height: 6px; background: #f5f6fa; border: none !important; padding: 0 !important; }
+    .ksub td { font-size: 11px; color: #aaa !important; }
+    .khlt td { background: #fffae6; font-weight: 700; }
+    .kmet td { background: #fafafa; }
+    /* 지표 행은 숫자 더 크게 */
+    .kmet .kv { font-size: 22px; font-weight: 900; }
+  </style>
+</head>
+<body>
+
+<h1>🎯 사후판매 녹취분석 대시보드</h1>
+<p class="sub">두 집합 구조 · 날짜 탭으로 수치 전환</p>
+
+<div class="tabs">
+  <button class="tab active" onclick="setDate(0,this)">7/28</button>
+  <button class="tab" onclick="setDate(1,this)">7/29</button>
+  <button class="tab" onclick="setDate(2,this)">7/30</button>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════ -->
+<!-- 집합 1 — 분류 퍼널                                  -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="section-card">
+  <div class="sec-hdr">
+    <div class="sec-hdr-row1">
+      <span class="sec-badge badge-b">집합 1</span>
+      <span class="sec-title">분류 퍼널 &nbsp;—&nbsp; 운영 모니터링</span>
+      <div class="mini-toggle">
+        <button class="mt-tab active" onclick="s1View('linear',this)">선형 플로우</button>
+        <button class="mt-tab" onclick="s1View('nested',this)">집합 표현</button>
+      </div>
+    </div>
+    <div class="sec-q">"오늘 AI가 위반 의심으로 판단한 건이 몇 건인가?"</div>
+  </div>
+
+  <div class="sec-body">
+
+    <!-- 퍼널 -->
+    <div class="funnel-col">
+
+    <!-- ▶ 선형 플로우 -->
+    <div id="s1-linear">
+
+      <!-- ① 전체 판매 모수 -->
+      <div class="stage-row">
+        <div class="stage c1">
+          <div class="shdr">
+            <span class="cnum">1</span>
+            <span class="sname">전체 판매 모수</span>
+          </div>
+          <div class="bnum" id="cnt1">183</div>
+          <div class="spct">건 &nbsp;·&nbsp; 100%</div>
+        </div>
+        <div class="dout-col">
+          <span class="darr">⟶</span>
+          <div class="dcard dr">
+            <div class="dhd dhd-r">⛔ 수동점검 대상</div>
+            <div class="mkpi">
+              <div class="mkpi-lbl">📵 매칭실패 (녹취없음)</div>
+              <div class="mkpi-val" id="d-mf">13</div>
+              <div class="mkpi-sub">건 &nbsp;·&nbsp; <span id="d-mf-pct">7.1%</span></div>
+            </div>
+            <div class="ditem">대본미입수: <b id="d-sf">4</b>건</div>
+            <div class="ditem">품질불량: <b id="d-qf">0</b>건</div>
+            <div class="dtot">합계 <span id="d-tot">17</span>건 (<span id="d-tot-pct">9.3%</span>)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="conn">
+        <div class="cline"></div>
+        <div class="clbl">④ = ① − 수동점검 대상</div>
+      </div>
+
+      <!-- ④ 점검가능건수 -->
+      <div class="stage-row">
+        <div class="stage c4">
+          <div class="shdr">
+            <span class="cnum">4</span>
+            <span class="sname">점검가능건수</span>
+          </div>
+          <div class="bnum" id="cnt4">166</div>
+          <div class="spct">건 &nbsp;·&nbsp; ①의 <span id="pct4">90.7%</span></div>
+        </div>
+        <div class="dout-col">
+          <span class="darr">⟶</span>
+          <div class="dcard dg">
+            <div class="dhd dhd-g">⬜ 점검 불필요</div>
+            <div class="ditem">미흡없음 ⑤: <b id="d-nc">27</b>건</div>
+            <div class="dgray-sub">④의 <span id="d-nc-pct">16.3%</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="conn">
+        <div class="cline"></div>
+        <div class="clbl">⑥ = ④ − 미흡없음</div>
+      </div>
+
+      <!-- ⑥ 점검필요건수 -->
+      <div class="stage-row">
+        <div class="stage c6">
+          <div class="shdr">
+            <span class="cnum">6</span>
+            <span class="sname">점검필요건수</span>
+          </div>
+          <div class="bnum" id="cnt6">139</div>
+          <div class="spct">건 &nbsp;·&nbsp; ①의 <span id="pct6">75.9%</span></div>
+        </div>
+        <div class="phantom"></div>
+      </div>
+
+    </div><!-- /s1-linear -->
+
+    <!-- ▶ 집합 표현 (중첩 박스) -->
+    <div id="s1-nested" style="display:none">
+
+      <!-- ① 외부 집합 -->
+      <div class="n-layer c1">
+        <div class="n-top">
+          <div class="n-info">
+            <div class="shdr"><span class="cnum">1</span><span class="sname">전체 판매 모수</span></div>
+            <div class="bnum" id="n1-cnt1">183</div>
+            <div class="spct">건 &nbsp;·&nbsp; 100%</div>
+          </div>
+          <div class="n-dout dr">
+            <div class="dhd dhd-r">⛔ 수동점검 대상</div>
+            <div class="mkpi">
+              <div class="mkpi-lbl">📵 매칭실패 (녹취없음)</div>
+              <div class="mkpi-val" id="n1-mf">13</div>
+              <div class="mkpi-sub">건 &nbsp;·&nbsp; <span id="n1-mf-pct">7.1%</span></div>
+            </div>
+            <div class="ditem">대본미입수: <b id="n1-sf">4</b>건</div>
+            <div class="ditem">품질불량: <b id="n1-qf">0</b>건</div>
+            <div class="dtot">합계 <span id="n1-tot">17</span>건 (<span id="n1-tot-pct">9.3%</span>)</div>
+          </div>
+        </div>
+
+        <div class="n-arrow">▼ &nbsp;④ = ① − 수동점검 대상</div>
+
+        <!-- ④ 중간 집합 -->
+        <div class="n-layer c4">
+          <div class="n-top">
+            <div class="n-info">
+              <div class="shdr"><span class="cnum">4</span><span class="sname">점검가능건수</span></div>
+              <div class="bnum" id="n1-cnt4">166</div>
+              <div class="spct">건 &nbsp;·&nbsp; ①의 <span id="n1-pct4">90.7%</span></div>
+            </div>
+            <div class="n-dout dg">
+              <div class="dhd dhd-g">⬜ 점검 불필요</div>
+              <div class="ditem">미흡없음 ⑤: <b id="n1-nc">27</b>건</div>
+              <div class="dgray-sub">④의 <span id="n1-nc-pct">16.3%</span></div>
+            </div>
+          </div>
+
+          <div class="n-arrow">▼ &nbsp;⑥ = ④ − 미흡없음</div>
+
+          <!-- ⑥ 내부 집합 -->
+          <div class="n-layer c6">
+            <div class="shdr"><span class="cnum">6</span><span class="sname">점검필요건수</span></div>
+            <div class="bnum" id="n1-cnt6">139</div>
+            <div class="spct">건 &nbsp;·&nbsp; ①의 <span id="n1-pct6">75.9%</span></div>
+          </div>
+
+        </div><!-- /n-layer c4 -->
+      </div><!-- /n-layer c1 -->
+
+    </div><!-- /s1-nested -->
+
+    </div><!-- /funnel-col -->
+
+    <!-- KPI 테이블 -->
+    <div class="kpi-col">
+      <table class="ktbl">
+        <tr class="kth"><td colspan="2">📊 주요 지표</td></tr>
+        <tr>
+          <td>① 판매건수</td>
+          <td class="kv kv-lg" id="k1-cnt1">183건</td>
+        </tr>
+        <tr>
+          <td>수동점검 대상</td>
+          <td class="kv kv-r" id="k1-tot">17건</td>
+        </tr>
+        <tr class="ksub">
+          <td>&nbsp;&nbsp;└ 매칭실패</td>
+          <td class="kv kv-r" style="font-size:14px" id="k1-mf">13건</td>
+        </tr>
+        <tr class="ksub">
+          <td>&nbsp;&nbsp;└ 대본미입수</td>
+          <td class="kv" style="font-size:14px" id="k1-sf">4건</td>
+        </tr>
+        <tr class="ksep"><td colspan="2"></td></tr>
+        <tr>
+          <td>④ 점검가능</td>
+          <td class="kv kv-b" id="k1-cnt4">166건</td>
+        </tr>
+        <tr class="ksub">
+          <td>&nbsp;&nbsp;└ 미흡없음 ⑤</td>
+          <td class="kv" style="font-size:14px" id="k1-nc">27건</td>
+        </tr>
+        <tr class="ksep"><td colspan="2"></td></tr>
+        <tr class="khlt">
+          <td>⑥ 점검필요</td>
+          <td class="kv kv-g kv-lg" id="k1-cnt6">139건</td>
+        </tr>
+        <tr class="ksub">
+          <td>&nbsp;&nbsp;└ 판매건수 대비</td>
+          <td class="kv" style="font-size:14px" id="k1-pct6">75.9%</td>
+        </tr>
+      </table>
+    </div>
+
+  </div>
+</div><!-- /집합 1 -->
+
+
+<!-- ══════════════════════════════════════════════════ -->
+<!-- 집합 2 — 검증 퍼널                                  -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="section-card">
+  <div class="sec-hdr">
+    <div class="sec-hdr-row1">
+      <span class="sec-badge badge-g">집합 2</span>
+      <span class="sec-title">검증 퍼널 &nbsp;—&nbsp; 모델 품질 관리</span>
+    </div>
+    <div class="sec-q">"AI 판단을 얼마나 신뢰할 수 있는가?" &nbsp;·&nbsp; 샘플링 모수 = ④ (집합 1과 공유)</div>
+  </div>
+
+  <div class="sec-body">
+
+    <!-- 퍼널 -->
+    <div class="funnel-col">
+
+      <!-- ④ 샘플링 모수 (집합1과 공유) -->
+      <div class="stage-row">
+        <div class="stage c4b" style="opacity:0.82">
+          <div class="shdr">
+            <span class="cnum">4</span>
+            <span class="sname">점검가능건수 &nbsp;—&nbsp; 샘플링 모수</span>
+          </div>
+          <div class="bnum" id="v-cnt4">166</div>
+          <div class="spct">건 &nbsp;·&nbsp; 집합 1의 ④와 동일</div>
+        </div>
+        <div class="phantom"></div>
+      </div>
+
+      <div class="conn">
+        <div class="cline"></div>
+        <div class="clbl">소비자보호부 샘플링 &nbsp;<span id="v-samp-pct">21.7%</span></div>
+      </div>
+
+      <!-- 소비자보호부 검수 -->
+      <div class="stage-row">
+        <div class="stage cck">
+          <div class="shdr">
+            <span class="cnum cnum-sm">검수</span>
+            <span class="sname">소비자보호부 검수 (샘플링)</span>
+          </div>
+          <div class="bnum" id="v-chk">36</div>
+          <div class="spct">건 &nbsp;·&nbsp; ④의 <span id="v-chk-pct">21.7%</span></div>
+
+          <!-- 2×2 매트릭스 -->
+          <div class="cm">
+            <div class="cm-cell cm-tp">
+              <div class="cm-lbl">✅ 정탐 TP</div>
+              <div class="cm-val" id="v-tp">13</div>
+              <div class="cm-sub">⑥에서 발생</div>
+            </div>
+            <div class="cm-cell cm-fp">
+              <div class="cm-lbl">❌ 오탐 FP</div>
+              <div class="cm-val" id="v-fp">13</div>
+              <div class="cm-sub">⑥에서 발생</div>
+            </div>
+            <div class="cm-cell cm-fn">
+              <div class="cm-lbl">⚠️ 미탐 FN</div>
+              <div class="cm-val" id="v-fn">1</div>
+              <div class="cm-sub">⑤에서 발생</div>
+            </div>
+            <div class="cm-cell cm-tn">
+              <div class="cm-lbl">○ 정상확인 TN</div>
+              <div class="cm-val" id="v-tn">9</div>
+              <div class="cm-sub">⑤에서 발생</div>
+            </div>
+          </div>
+
+          <!-- 실제 위반 요약 -->
+          <div class="vbar">
+            실제 위반 &nbsp;<span class="vnum" id="v-viol">14</span>건<br>
+            위반안내 ⑦ <span id="v-vii">2</span>건
+            &nbsp;+&nbsp; 용인 ⑧ <span id="v-viii">12</span>건
+          </div>
+        </div>
+        <div class="phantom"></div>
+      </div>
+
+    </div><!-- /funnel-col -->
+
+    <!-- KPI 테이블 -->
+    <div class="kpi-col">
+      <table class="ktbl">
+        <tr class="kth-g"><td colspan="2">📊 주요 지표</td></tr>
+        <tr>
+          <td>샘플링 모수 (=④)</td>
+          <td class="kv kv-b" id="k2-cnt4">166건</td>
+        </tr>
+        <tr>
+          <td>검수건수</td>
+          <td class="kv" id="k2-chk">36건</td>
+        </tr>
+        <tr class="ksub">
+          <td>&nbsp;&nbsp;└ 샘플링 비율</td>
+          <td class="kv" style="font-size:14px" id="k2-samp-pct">21.7%</td>
+        </tr>
+        <tr class="ksep"><td colspan="2"></td></tr>
+        <tr>
+          <td>✅ 정탐 TP</td>
+          <td class="kv kv-g" id="k2-tp">13건</td>
+        </tr>
+        <tr>
+          <td>❌ 오탐 FP</td>
+          <td class="kv kv-r" id="k2-fp">13건</td>
+        </tr>
+        <tr>
+          <td>⚠️ 미탐 FN</td>
+          <td class="kv kv-o" id="k2-fn">1건</td>
+        </tr>
+        <tr>
+          <td>○ 정상확인 TN</td>
+          <td class="kv" id="k2-tn">9건</td>
+        </tr>
+        <tr class="ksep"><td colspan="2"></td></tr>
+        <tr class="khlt">
+          <td>실제 위반</td>
+          <td class="kv kv-lg" id="k2-viol">14건</td>
+        </tr>
+        <tr class="ksub">
+          <td>&nbsp;&nbsp;└ 위반안내 ⑦</td>
+          <td class="kv" style="font-size:14px" id="k2-vii">2건</td>
+        </tr>
+        <tr class="ksub">
+          <td>&nbsp;&nbsp;└ 용인 ⑧</td>
+          <td class="kv" style="font-size:14px" id="k2-viii">12건</td>
+        </tr>
+        <tr class="ksep"><td colspan="2"></td></tr>
+        <tr class="kmet">
+          <td>Precision &nbsp;<span style="font-size:10px;color:#aaa">정밀도</span></td>
+          <td class="kv kv-b" id="k2-pre">50.0%</td>
+        </tr>
+        <tr class="kmet">
+          <td>Recall &nbsp;<span style="font-size:10px;color:#aaa">재현율</span></td>
+          <td class="kv kv-g" id="k2-rec">92.9%</td>
+        </tr>
+        <tr class="kmet">
+          <td>Accuracy &nbsp;<span style="font-size:10px;color:#aaa">정확도</span></td>
+          <td class="kv kv-p" id="k2-acc">61.1%</td>
+        </tr>
+      </table>
+    </div>
+
+  </div>
+</div><!-- /집합 2 -->
+
+
+<script>
+  const D = [
+    {
+      cnt1:183, mf:13, sf:4, qf:0,
+      cnt4:166, nc:27, cnt6:139,
+      chk:36, tp:13, fp:13, fn:1, tn:9,
+      vii:2, viii:12,
+      pre:'50.0%', rec:'92.9%', acc:'61.1%'
+    },
+    {
+      cnt1:172, mf:0, sf:3, qf:0,
+      cnt4:169, nc:38, cnt6:131,
+      chk:36, tp:17, fp:7, fn:0, tn:12,
+      vii:null, viii:null,
+      pre:'70.8%', rec:'100.0%', acc:'80.6%'
+    },
+    {
+      cnt1:218, mf:5, sf:3, qf:0,
+      cnt4:210, nc:32, cnt6:178,
+      chk:46, tp:15, fp:21, fn:0, tn:10,
+      vii:null, viii:null,
+      pre:'41.7%', rec:'100.0%', acc:'54.3%'
+    },
+  ];
+
+  const p   = (a,b) => b ? (a/b*100).toFixed(1)+'%' : '0.0%';
+  const $   = id => document.getElementById(id);
+  const n   = (v, u='건') => v === null ? '미집계' : v + u;
+
+  function s1View(v, el) {
+    document.querySelectorAll('.mt-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('s1-linear').style.display = v === 'linear' ? 'block' : 'none';
+    document.getElementById('s1-nested').style.display = v === 'nested' ? 'block' : 'none';
+  }
+
+  function setDate(i, el) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    const r   = D[i];
+    const tot = r.mf + r.sf + r.qf;
+    const viol= r.tp + r.fn;
+
+    /* ── 집합 1 선형 퍼널 */
+    $('cnt1').textContent      = r.cnt1;
+    $('d-mf').textContent      = r.mf;
+    $('d-mf-pct').textContent  = p(r.mf, r.cnt1);
+    $('d-sf').textContent      = r.sf;
+    $('d-qf').textContent      = r.qf;
+    $('d-tot').textContent     = tot;
+    $('d-tot-pct').textContent = p(tot, r.cnt1);
+    $('cnt4').textContent      = r.cnt4;
+    $('pct4').textContent      = p(r.cnt4, r.cnt1);
+    $('d-nc').textContent      = r.nc;
+    $('d-nc-pct').textContent  = p(r.nc, r.cnt4);
+    $('cnt6').textContent      = r.cnt6;
+    $('pct6').textContent      = p(r.cnt6, r.cnt1);
+
+    /* ── 집합 1 KPI */
+    $('k1-cnt1').textContent = r.cnt1+'건';
+    $('k1-tot').textContent  = tot+'건';
+    $('k1-mf').textContent   = r.mf+'건';
+    $('k1-sf').textContent   = r.sf+'건';
+    $('k1-cnt4').textContent = r.cnt4+'건';
+    $('k1-nc').textContent   = r.nc+'건';
+    $('k1-cnt6').textContent = r.cnt6+'건';
+    $('k1-pct6').textContent = p(r.cnt6, r.cnt1);
+
+    /* ── 집합 1 중첩 표현 */
+    $('n1-cnt1').textContent    = r.cnt1;
+    $('n1-mf').textContent      = r.mf;
+    $('n1-mf-pct').textContent  = p(r.mf, r.cnt1);
+    $('n1-sf').textContent      = r.sf;
+    $('n1-qf').textContent      = r.qf;
+    $('n1-tot').textContent     = tot;
+    $('n1-tot-pct').textContent = p(tot, r.cnt1);
+    $('n1-cnt4').textContent    = r.cnt4;
+    $('n1-pct4').textContent    = p(r.cnt4, r.cnt1);
+    $('n1-nc').textContent      = r.nc;
+    $('n1-nc-pct').textContent  = p(r.nc, r.cnt4);
+    $('n1-cnt6').textContent    = r.cnt6;
+    $('n1-pct6').textContent    = p(r.cnt6, r.cnt1);
+
+    /* ── 집합 2 퍼널 */
+    $('v-cnt4').textContent      = r.cnt4;
+    $('v-samp-pct').textContent  = p(r.chk, r.cnt4);
+    $('v-chk').textContent       = r.chk;
+    $('v-chk-pct').textContent   = p(r.chk, r.cnt4);
+    $('v-tp').textContent        = r.tp;
+    $('v-fp').textContent        = r.fp;
+    $('v-fn').textContent        = r.fn;
+    $('v-tn').textContent        = r.tn;
+    $('v-viol').textContent      = viol;
+    $('v-vii').textContent       = r.vii  === null ? '-' : r.vii;
+    $('v-viii').textContent      = r.viii === null ? '-' : r.viii;
+
+    /* ── 집합 2 KPI */
+    $('k2-cnt4').textContent     = r.cnt4+'건';
+    $('k2-chk').textContent      = r.chk+'건';
+    $('k2-samp-pct').textContent = p(r.chk, r.cnt4);
+    $('k2-tp').textContent       = r.tp+'건';
+    $('k2-fp').textContent       = r.fp+'건';
+    $('k2-fn').textContent       = r.fn+'건';
+    $('k2-tn').textContent       = r.tn+'건';
+    $('k2-viol').textContent     = viol+'건';
+    $('k2-vii').textContent      = n(r.vii);
+    $('k2-viii').textContent     = n(r.viii);
+    $('k2-pre').textContent      = r.pre;
+    $('k2-rec').textContent      = r.rec;
+    $('k2-acc').textContent      = r.acc;
+  }
+</script>
+</body>
+</html>
